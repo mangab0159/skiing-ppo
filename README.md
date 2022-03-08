@@ -10,7 +10,9 @@
 ## 
 #### Part 1. 강화학습 소개
 - [1차시](https://github.com/black-subb/study_Reinforcement_learning/issues/1#issue-1121989354)
-  - 03\. 강화학습 환경 설정 - 강화학습 구현을 위한 환경설정
+  - 01\. 강화학습(RL)이란? 
+  - 03\. RL 구현을 위한 환경설정 
+  
 #### Part 2. 가치기반 강화학습의 풀이법
 - [2차시](https://github.com/black-subb/study_Reinforcement_learning/issues/2)
   - Ch 01. 마르코프 결정과정
