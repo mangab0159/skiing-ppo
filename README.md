@@ -21,7 +21,7 @@
     - 01\. DP(동적계획법)
 - [4차시](https://github.com/black-subb/study_Reinforcement_learning/issues/4#issue-1137866355)
   - Ch 02. 동적 계획법
-    - 03\. DP 실습 3 비동기적 DP
+    - 03\. 비동기적 동적계획법
 - [5차시](https://github.com/black-subb/study_Reinforcement_learning/issues/5#issue-1144913368)
   - Ch 03. 모델 없이 세상 알아가기
     - 01\. 도박의 도시 몬테카를로(MC) 그리고 MC 정책추정 - 1
