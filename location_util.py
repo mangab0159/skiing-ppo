@@ -12,11 +12,11 @@ def get_pos_player(obs):
 
 
 def get_pos_flags(obs):
-    # obs_clip = obs[:obs.shape[0] // 2]
+    obs_clip = obs[:obs.shape[0] // 2]
     if np.any(np.sum(obs == [184, 50, 50], -1) == 3):
         ids = np.where(np.sum(obs == [184, 50, 50], -1) == 3)
         return ids[0].mean(), ids[1].mean()
     else:
         base = 0
-        ids = np.where(np.sum(obs == [66, 72, 200], -1) == 3)
+        ids = np.where(np.sum(obs_clip == [66, 72, 200], -1) == 3)
         return ids[0].mean() + base, ids[1].mean()

@@ -44,7 +44,8 @@ for ep in range(1, n_eps + 1):
         dist = (y_p - y_f) ** 2 #((x_p - x_f) ** 2 + (y_p - y_f) ** 2)
         # print(dist)
         if np.isnan(dist):
-            dist = 0
+            continue
+
         r2 = -dist
         if x_p > x_f:
             if ((x_p - x_f) ** 2 + (y_p - y_f) ** 2) ** 0.5 < dist_pass:
@@ -52,20 +53,26 @@ for ep in range(1, n_eps + 1):
                 done2 = True # 전체 학습땐 주석처리
             else:
                 done2 = True
+        else:
+            if len(xs) >= 300:
+                r = min_score
+                done2 = True
+
         if done:
             r = (r1 - min_score) + r2
         else:
             r = r2
 
+
         xs.append(x)
         acts.append(act)
-        # print(r)
         rs.append(r)
         # print((x_p, y_p), (x_f, y_f), act, r)
         # print(x_p, x_f, r)
         if done2:
             break
-
+    if len(xs) == 0:
+        continue
     xs = torch.cat(xs, 0)
     acts = torch.LongTensor(acts)
     rs = [r / len(rs) for r in rs]
