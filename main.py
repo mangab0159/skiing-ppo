@@ -1,121 +1,96 @@
 import gym
-import torch
 
-from Agent import Agent
-from location_util import *
+from Agent import *
+from util.location_util import *
+from util.util import *
 
-min_score = -40000
-proxy_score = 500
-# dist_pass = 20
-dist_pass = 30
-done = False
-
-gamma = 0.99
-lr = 0.0002
-agent = Agent(lr)#.cuda()
-
-# game setting
 env_name = "Skiing-v4"
 env = gym.make(env_name, render_mode="human")
 
-n_eps = 100000
-update_every = 1
+n_cont = 4
+obss = np.empty((0, 64, 64, 3 * n_cont))
+acts = np.empty((0))
 
-xs_batch, acts_batch, rs_batch, returns_batch = [], [], [], []
+lr = 0.0002
+agent = Agent(CNN(n_cont=n_cont), lr=lr)
 
-for ep in range(1, n_eps + 1):
-    obs = env.reset()
-    rs = []
-    xs = []
-    acts = []
-    done2 = False
+for episode in range(1000):
+    observe = env.reset()
+    step = 0
+    cnt = 0
+    done = False
+    r_a, c_a = get_pos_player(observe)
+    r_f, c_f = get_pos_flags(observe)
+    r_a_old, c_a_old = r_a, c_a
+    observe_old = observe
+
+    history = np.concatenate([pre_processing(observe)] * n_cont, -1)
+
+    outs_o = []
+    outs_a = []
     while not done:
-        # do something to environment
-        x = (torch.from_numpy(obs).unsqueeze(0).float().permute(0, 3, 1, 2) / 255) * 2 - 1
-        act = agent.get_action(x)
-        # act = agent.get_action(x.cuda()).cpu()
+        step += 1
 
-        obs, r1, done, info = env.step(act)
+        # TEACHER
+        v_f = np.arctan2(r_f - r_a, c_f - c_a)  # direction from player to target
+        spd = get_speed(observe, observe_old)
+        v_a = np.arctan2(spd, c_a - c_a_old)  # speed vector of the player
 
-        # get r2
-        x_p, y_p = get_pos_player(obs)
-        x_f, y_f = get_pos_flags(obs)
+        r_a_old, c_a_old = r_a, c_a
+        observe_old = observe
 
-        dist = (y_p - y_f) ** 2 #((x_p - x_f) ** 2 + (y_p - y_f) ** 2)
-        # print(dist)
-        if np.isnan(dist):
-            continue
-
-        r2 = -dist
-        if x_p > x_f:
-            if ((x_p - x_f) ** 2 + (y_p - y_f) ** 2) ** 0.5 < dist_pass:
-                #r2 = proxy_score
-                done2 = True # 전체 학습땐 주석처리
+        if spd == 0 and (c_a - c_a_old) == 0:
+            # no movement
+            cnt += 1
+            act_t = np.random.choice(3, 1)[0]
+        else:
+            cnt = 0
+            if v_f - v_a < -0.1:
+                act_t = 1
+            elif v_f - v_a > 0.1:
+                act_t = 2
             else:
-                done2 = True
-        else:
-            if len(xs) >= 300:
-                r = min_score
-                done2 = True
+                act_t = 0
 
-        if done:
-            r = (r1 - min_score) + r2
-        else:
-            r = r2
-
-
-        xs.append(x)
-        acts.append(act)
-        rs.append(r)
-        # print((x_p, y_p), (x_f, y_f), act, r)
-        # print(x_p, x_f, r)
-        if done2:
+        if cnt > 10:
+            print('no movement!')
             break
-    if len(xs) == 0:
-        continue
-    xs = torch.cat(xs, 0)
-    acts = torch.LongTensor(acts)
-    rs = [r / len(rs) for r in rs]
-    # rs = torch.FloatTensor(rs)
 
-    gs = []
-    g = 0
-    for r in rs[::-1]:
-        g = r + gamma * g
-        gs.insert(0, g)
-    gs = torch.FloatTensor(gs)
+        outs_o.append(history)
+        outs_a.append(act_t)
 
-    agent.cuda()
-    agent.update_episodes(xs.cuda(), acts.cuda(), gs.cuda(), use_norm=True)
-    agent.cpu()
-    # agent.update_episodes(xs, acts, gs)
+        act = agent.get_action(np.array([history]))
 
-    # xs_batch.append(xs)
-    # acts_batch.append(acts)
-    # rs_batch.append(gs)
+        observe, reward, done, info = env.step(act)
 
-    # if ep % update_every == 0:
-    #     xs_batch = torch.cat(xs_batch, 0)
-    #     acts_batch = torch.cat(acts_batch, 0)
-    #     rs_batch = torch.cat(rs_batch, 0)
+        history = np.concatenate([pre_processing(observe), history[:, :, :-3]], -1)
+        r_a, c_a = get_pos_player(observe)
+        r_f, c_f = get_pos_flags(observe)
 
-    #     agent.update_episodes(xs_batch, acts_batch, rs_batch)
+    # append data & limit data size
+    obss = np.concatenate([obss, outs_o], 0)
+    acts = np.concatenate([acts, outs_a], 0)
+    if len(obss) > 5000:
+        obss = obss[-5000:]
+        acts = acts[-5000:]
 
-    #     xs_batch, acts_batch, rs_batch, returns_batch = [], [], [], []
+    if torch.cuda.is_available():
+        agent.model.cuda()
 
-    print('(ep, gs): ({0}, {1})'.format(ep, gs[0]))
+    for i in range(500):
+        d_x, d_y = batch(obss, acts)
+        loss = agent.update(d_x, d_y)
+        print('%5d %5d' % (episode, i), loss, end='\r')
+    print()
 
-# logits = agent(xs)
-...
+    if torch.cuda.is_available():
+        agent.model.cpu()
 
+observe = env.reset()
+done = False
+history = np.concatenate([pre_processing(observe)] * n_cont, -1)
 
-PATH = './weights/'
-
-torch.save(agent.model, PATH + 'model.pt')  # 전체 모델 저장
-torch.save(agent.model.state_dict(), PATH + 'model_state_dict.pt')  # 모델 객체의 state_dict 저장
-torch.save({
-    'model': agent.model.state_dict(),
-    'optimizer': agent.opt.state_dict()
-}, PATH + 'all.tar')
-
-env.close()
+while not done:
+    act = agent.get_action(np.array([history]))
+    observe, reward, done, info = env.step(act)
+    history = np.concatenate([pre_processing(observe), history[:, :, :-3]], -1)
