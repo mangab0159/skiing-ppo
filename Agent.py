@@ -9,14 +9,15 @@ class Agent:
         self.opt = torch.optim.Adam(params=self.model.parameters(), lr=lr)
 
     def get_action(self, obs):
-        obs = (torch.from_numpy(obs).float().permute(0, 3, 1, 2) / 255) * 2 - 1
+        obs = torch.from_numpy(obs).float().permute(0, 3, 1, 2)
         with torch.no_grad():
             logit = self.model(obs)
-            act = torch.distributions.categorical.Categorical(logits=logit[0]).sample()
+            categorical = torch.distributions.categorical.Categorical(logits=logit[0])
+            act = categorical.sample()
             return act
 
     def update(self, d_x, d_y):
-        d_x = (torch.from_numpy(d_x).float().permute(0, 3, 1, 2) / 255) * 2 - 1
+        d_x = torch.from_numpy(d_x).float().permute(0, 3, 1, 2)
         d_y = torch.from_numpy(d_y).long()
 
         if torch.cuda.is_available():
@@ -35,10 +36,10 @@ class Agent:
 
 
 class CNN(nn.Module):
-    def __init__(self, n_cont):
+    def __init__(self, n_count):
         super().__init__()
         self.model = nn.Sequential(
-            nn.Conv2d(3 * n_cont, 16, 8, stride=4),
+            nn.Conv2d(3 * n_count, 16, 8, stride=4),
             nn.ReLU(),
             nn.Conv2d(16, 32, 4, stride=2),
             nn.ReLU(),
